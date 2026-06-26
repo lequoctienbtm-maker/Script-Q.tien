@@ -1,0 +1,148 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = game:GetService("Workspace").CurrentCamera
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Config = {
+	Aim = false,
+	Kill = false,
+	Esp = false
+}
+local CanShoot = true
+local function IsVisible(TargetPart)
+	local RaycastParams = RaycastParams.new()
+	RaycastParams.FilterDescendantsInstances = {
+		LocalPlayer.Character,
+		TargetPart.Parent
+	}
+	RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	local RaycastResult = workspace:Raycast(Camera.CFrame.Position, TargetPart.Position - Camera.CFrame.Position, RaycastParams)
+	return not RaycastResult
+end
+local function UpdateESP()
+	for _, Player in pairs(Players:GetPlayers()) do
+		if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+			local root = Player.Character.HumanoidRootPart
+			local espBox = root:FindFirstChild("Q_Tien_Box")
+			if Config.Esp and Player.Character:FindFirstChildOfClass("Humanoid") and Player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+				if not espBox then
+					espBox = Instance.new("BoxHandleAdornment", root)
+					espBox.Name = "Q_Tien_Box";
+					espBox.Size = Vector3.new(4, 5, 1)
+					espBox.Color3 = Color3.fromRGB(0, 255, 255);
+					espBox.AlwaysOnTop = true
+					espBox.ZIndex = 5;
+					espBox.Adornee = root;
+					espBox.Transparency = 0.3
+				end
+			elseif espBox then
+				espBox:Destroy()
+			end
+		end
+	end
+end
+RunService.Heartbeat:Connect(function()
+	UpdateESP()
+	if not Config.Aim and not Config.Kill then
+		return
+	end
+	local Target = nil;
+	local ShortestDist = math.huge
+	for _, Player in pairs(Players:GetPlayers()) do
+		if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+			local Head = Player.Character:FindFirstChild("Head")
+			if Head and IsVisible(Head) then
+				local Dist = (Head.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+				if Dist < ShortestDist then
+					ShortestDist = Dist;
+					Target = Player
+				end
+			end
+		end
+	end
+	if Target and Target.Character:FindFirstChild("Head") then
+		local Head = Target.Character.Head
+		if Config.Aim then
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, Head.Position)
+		elseif Config.Kill then
+			local HRP = Target.Character.HumanoidRootPart
+			LocalPlayer.Character.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, 2) * CFrame.Angles(0, math.pi, 0)
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, Head.Position)
+			if CanShoot then
+				CanShoot = false;
+				VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+				task.wait(0.05);
+				VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+				task.wait(0.05);
+				CanShoot = true
+			end
+		end
+	end
+end)
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.ResetOnSpawn = false
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0, 60, 0, 60);
+ToggleBtn.Position = UDim2.new(0.02, 0, 0.02, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25);
+ToggleBtn.Text = "Q.tien"
+ToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 255);
+ToggleBtn.Font = Enum.Font.GothamBold;
+ToggleBtn.Visible = false
+ToggleBtn.Draggable = true;
+Instance.new("UICorner", ToggleBtn);
+Instance.new("UIStroke", ToggleBtn).Color = Color3.fromRGB(0, 255, 255)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 160, 0, 200);
+MainFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25);
+MainFrame.Active = true;
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame);
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(0, 255, 255)
+local MenuTitle = Instance.new("TextLabel", MainFrame)
+MenuTitle.Size = UDim2.new(1, 0, 0, 30);
+MenuTitle.Text = "Q.tien Hub";
+MenuTitle.TextColor3 = Color3.new(1, 1, 1)
+MenuTitle.Font = Enum.Font.GothamBold;
+MenuTitle.TextSize = 14;
+MenuTitle.BackgroundTransparency = 1
+local function CreateBtn(name, yPos, key)
+	local btn = Instance.new("TextButton", MainFrame)
+	btn.Size = UDim2.new(0, 140, 0, 30);
+	btn.Position = UDim2.new(0.5, - 70, 0, yPos)
+	btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50);
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Text = name .. ": OFF";
+	btn.Name = name;
+	btn.Parent = MainFrame
+	Instance.new("UICorner", btn)
+	btn.MouseButton1Click:Connect(function()
+		Config[key] = not Config[key]
+		if key == "Aim" then
+			Config.Kill = false
+		elseif key == "Kill" then
+			Config.Aim = false
+		end
+		btn.Text = name .. (Config[key] and ": ON" or ": OFF")
+		btn.BackgroundColor3 = Config[key] and Color3.fromRGB(0, 150, 150) or Color3.fromRGB(40, 40, 50)
+	end)
+	return btn
+end
+CreateBtn("AIM LOCK", 40, "Aim")
+CreateBtn("KILL AURA", 80, "Kill")
+CreateBtn("PLAYER ESP", 120, "Esp")
+local CloseBtn = Instance.new("TextButton", MainFrame)
+CloseBtn.Size = UDim2.new(0, 20, 0, 20);
+CloseBtn.Position = UDim2.new(1, - 25, 0, 5);
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1);
+CloseBtn.Parent = MainFrame
+CloseBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false;
+	ToggleBtn.Visible = true
+end)
+ToggleBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = true;
+	ToggleBtn.Visible = false
+end)
