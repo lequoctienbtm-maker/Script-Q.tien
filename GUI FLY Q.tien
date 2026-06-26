@@ -1,0 +1,173 @@
+```lua
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local isFlying = false
+local speed = 60
+local connection = nil
+local bv = nil
+
+local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
+sg.Name = "QThub"
+sg.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame", sg)
+MainFrame.Size = UDim2.new(0, 150, 0, 95)
+MainFrame.Position = UDim2.new(0.5, -75, 0.05, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
+local DragZone = Instance.new("Frame", MainFrame)
+DragZone.Size = UDim2.new(0, 30, 0, 30)
+DragZone.Position = UDim2.new(1, -35, 1, -35)
+DragZone.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+DragZone.BackgroundTransparency = 0.8
+Instance.new("UICorner", DragZone).CornerRadius = UDim.new(1, 0)
+
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+	local delta = input.Position - dragStart
+	MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+DragZone.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+DragZone.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		update(input)
+	end
+end)
+
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(255, 50, 50)
+UIStroke.Thickness = 1.5
+
+local btn = Instance.new("TextButton", MainFrame)
+btn.Size = UDim2.new(0, 130, 0, 40)
+btn.Position = UDim2.new(0.5, -65, 0, 10)
+btn.Text = "FLY: OFF"
+btn.Font = Enum.Font.SourceSansBold
+btn.TextSize = 18
+btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+btn.TextColor3 = Color3.fromRGB(255, 50, 50)
+btn.BorderSizePixel = 0
+Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+local AuthorLabel = Instance.new("TextLabel", MainFrame)
+AuthorLabel.Size = UDim2.new(1, 0, 0, 15)
+AuthorLabel.Position = UDim2.new(0, 0, 0, 55)
+AuthorLabel.Text = "Made in Q.tien"
+AuthorLabel.Font = Enum.Font.SourceSansItalic
+AuthorLabel.TextSize = 12
+AuthorLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+AuthorLabel.BackgroundTransparency = 1
+
+local NoteLabel = Instance.new("TextLabel", MainFrame)
+NoteLabel.Size = UDim2.new(1, 0, 0, 20)
+NoteLabel.Position = UDim2.new(0, 0, 0, 70)
+NoteLabel.Text = "Muốn k làm mà đòi có ăn\nthì chỉ có lăng vào tà đạo"
+NoteLabel.Font = Enum.Font.SourceSans
+NoteLabel.TextSize = 10
+NoteLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+NoteLabel.BackgroundTransparency = 1
+
+local function clean()
+	if connection then connection:Disconnect() connection = nil end
+	if bv then bv:Destroy() bv = nil end
+	pcall(function() 
+		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp = LocalPlayer.Character.HumanoidRootPart
+			hrp.Anchored = false
+			hrp.Velocity = Vector3.new(0, 0, 0)
+			hrp.RotVelocity = Vector3.new(0, 0, 0)
+		end
+	end)
+end
+
+local function start()
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hrp or not hum then return end
+
+	clean()
+
+	connection = RunService.RenderStepped:Connect(function()
+		if not char or not hrp.Parent or not hum then clean() return end
+		
+		local moveDir = hum.MoveDirection
+		local camLook = Camera.CFrame.LookVector
+		
+		hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + camLook)
+		
+		if moveDir.Magnitude > 0.01 then
+			hrp.Anchored = false
+			local localMove = hrp.CFrame:VectorToObjectSpace(moveDir)
+			
+			if not bv then
+				bv = Instance.new("BodyVelocity")
+				bv.Name = "FlyVelocity"
+				bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+				bv.Parent = hrp
+			end
+			
+			if localMove.Z > 0 then
+				bv.Velocity = -camLook * speed
+			else
+				bv.Velocity = camLook * speed
+			end
+		else
+			if bv then bv:Destroy() bv = nil end
+			hrp.Velocity = Vector3.new(0, 0, 0)
+			hrp.RotVelocity = Vector3.new(0, 0, 0)
+			hrp.Anchored = true
+		end
+	end)
+end
+
+btn.MouseButton1Click:Connect(function()
+	isFlying = not isFlying
+	if isFlying then
+		btn.Text = "FLY: ON"
+		btn.TextColor3 = Color3.fromRGB(50, 255, 50)
+		UIStroke.Color = Color3.fromRGB(50, 255, 50)
+		start()
+	else
+		btn.Text = "FLY: OFF"
+		btn.TextColor3 = Color3.fromRGB(255, 50, 50)
+		UIStroke.Color = Color3.fromRGB(255, 50, 50)
+		clean()
+	end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+	isFlying = false
+	btn.Text = "FLY: OFF"
+	btn.TextColor3 = Color3.fromRGB(255, 50, 50)
+	UIStroke.Color = Color3.fromRGB(255, 50, 50)
+	clean()
+end)
+
+```
