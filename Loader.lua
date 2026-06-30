@@ -1,4 +1,4 @@
-local API_URL = "https://ten-ung-dung-cua-ban.bot-hosting.net/verify?key="
+local API_URL = "https://fi15.bot-hosting.net:26080/verify?key="
 local inputKey = "QTIEN-VIP" -- Hoặc tạo một ô nhập Key trong UI của bạn
 
 local function LoadScript()
